@@ -1,10 +1,11 @@
 import { interpolateString } from 'd3-interpolate';
 import splitCurve from './split';
+import {Command} from './Command'
 
 /**
  * List of params for each command type in a path `d` attribute
  */
-const typeMap = {
+const typeMap:any = {
   M: ['x', 'y'],
   L: ['x', 'y'],
   H: ['x'],
@@ -17,7 +18,7 @@ const typeMap = {
 };
 
 
-function arrayOfLength(length, value) {
+function arrayOfLength<T>(length:number, value?:T):T[] {
   const array = Array(length);
   for (let i = 0; i < length; i++) {
     array[i] = value;
@@ -32,13 +33,13 @@ function arrayOfLength(length, value) {
  * @param {String} commandString Token string from the `d` attribute (e.g., L0,0)
  * @return {Object} An object representing this command.
  */
-function commandToObject(commandString) {
+function commandToObject(commandString:string):Command {
   // convert all spaces to commas
   commandString = commandString.trim().replace(/ /g, ',');
 
   const type = commandString[0];
   const args = commandString.substring(1).split(',');
-  return typeMap[type.toUpperCase()].reduce((obj, param, i) => {
+  return (typeMap as any)[type.toUpperCase()].reduce((obj:any, param:any, i:number) => {
     // parse X as float since we need it to do distance checks for extending points
     obj[param] = +args[i];
     return obj;
@@ -50,10 +51,10 @@ function commandToObject(commandString) {
  * @param {Object} command A command object
  * @return {String} The string for the `d` attribute
  */
-function commandToString(command) {
+function commandToString(command:Command):string {
   const { type } = command;
   const params = typeMap[type.toUpperCase()];
-  return `${type}${params.map(p => command[p]).join(',')}`;
+  return `${type}${params.map((p:string) => (command as any)[p]).join(',')}`;
 }
 
 /**
@@ -76,8 +77,8 @@ function commandToString(command) {
  * @param {Object} bCommand Command object from path `d` attribute to match against
  * @return {Object} aCommand converted to type of bCommand
  */
-function convertToSameType(aCommand, bCommand) {
-  const conversionMap = {
+function convertToSameType(aCommand:Command, bCommand:Command):Command {
+  const conversionMap:{ [key:string]:string } = {
     x1: 'x',
     y1: 'y',
     x2: 'x',
@@ -88,11 +89,11 @@ function convertToSameType(aCommand, bCommand) {
 
   // convert (but ignore M types)
   if (aCommand.type !== bCommand.type && bCommand.type.toUpperCase() !== 'M') {
-    const aConverted = {};
+    const aConverted:Command = {type:null, x:null, y:null};
     Object.keys(bCommand).forEach(bKey => {
-      const bValue = bCommand[bKey];
+      const bValue:number = bCommand[bKey];
       // first read from the A command
-      let aValue = aCommand[bKey];
+      let aValue:number = aCommand[bKey];
 
       // if it is one of these values, read from B no matter what
       if (aValue === undefined) {
@@ -134,8 +135,8 @@ function convertToSameType(aCommand, bCommand) {
  * @return {Object[]} Array of ~segmentCount command objects between commandStart and
  *   commandEnd. (Can be segmentCount+1 objects if commandStart is type M).
  */
-function splitSegment(commandStart, commandEnd, segmentCount) {
-  let segments = [];
+function splitSegment(commandStart:Command, commandEnd:Command, segmentCount:number) {
+  let segments:Command[] = [];
 
   // line, quadratic bezier, or cubic bezier
   if (commandEnd.type === 'L' || commandEnd.type === 'Q' || commandEnd.type === 'C') {
@@ -167,7 +168,7 @@ function splitSegment(commandStart, commandEnd, segmentCount) {
  *   end command object and returns true if the segment should be excluded from splitting.
  * @return {Object[]} The extended commandsToExtend array
  */
-function extend(commandsToExtend, referenceCommands, excludeSegment) {
+function extend(commandsToExtend:Command[], referenceCommands:Command[], excludeSegment:Function) {
   // compute insertion points:
   // number of segments in the path to extend
   const numSegmentsToExtend = commandsToExtend.length - 1;
@@ -182,7 +183,7 @@ function extend(commandsToExtend, referenceCommands, excludeSegment) {
   // should be added in that segment (should always be >= 1 since we need each
   // point itself).
   // 0 = segment 0-1, 1 = segment 1-2, n-1 = last vertex
-  const countPointsPerSegment = arrayOfLength(numReferenceSegments).reduce((accum, d, i) => {
+  const countPointsPerSegment:any = arrayOfLength(numReferenceSegments).reduce((accum:any[], d, i) => {
     let insertIndex = Math.floor(segmentRatio * i);
 
     // handle excluding segments
@@ -227,7 +228,7 @@ function extend(commandsToExtend, referenceCommands, excludeSegment) {
   }, []);
 
   // extend each segment to have the correct number of points for a smooth interpolation
-  const extended = countPointsPerSegment.reduce((extended, segmentCount, i) => {
+  const extended = countPointsPerSegment.reduce((extended:any, segmentCount:number, i:number) => {
     // if last command, just add `segmentCount` number of times
     if (i === commandsToExtend.length - 1) {
       const lastCommandCopies = arrayOfLength(segmentCount,
@@ -260,7 +261,7 @@ function extend(commandsToExtend, referenceCommands, excludeSegment) {
  * @param {String} pathString the `d` attribute for a path
  * @return {String} The normalized path string.
  */
-function normalizePathString(pathString) {
+function normalizePathString(pathString:string) {
   if (pathString == null) {
     return '';
   }
@@ -285,7 +286,7 @@ function normalizePathString(pathString) {
  *   end command object and returns true if the segment should be excluded from splitting.
  * @returns {Function} Interpolation function that maps t ([0, 1]) to a path `d` string.
  */
-export default function interpolatePath(a, b, excludeSegment) {
+export default function interpolatePath(a:string, b:string, excludeSegment:Function):Function {
   // remove Z, remove spaces after letters as seen in IE
   const aNormalized = normalizePathString(a);
   const bNormalized = normalizePathString(b);
@@ -348,7 +349,7 @@ export default function interpolatePath(a, b, excludeSegment) {
   // use d3's string interpolator to now interpolate between two path `d` strings.
   const stringInterpolator = interpolateString(aProcessed, bProcessed);
 
-  return function pathInterpolator(t) {
+  return function pathInterpolator(t:number):string {
     // at 1 return the final value without the extensions used during interpolation
     if (t === 1) {
       return b == null ? '' : b;
